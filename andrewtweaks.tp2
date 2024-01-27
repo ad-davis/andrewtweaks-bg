@@ -1,0 +1,149 @@
+BACKUP ~andrewtweaks/backup~
+AUTHOR ~andrew~
+
+ALWAYS
+  CLEAR_EVERYTHING
+  INCLUDE ~%MOD_FOLDER%/lib/functions.tpa~ // miscellaneous patch functions
+END
+
+LANGUAGE ~English~ ~english~ ~%MOD_FOLDER%/tra/english/setup.tra~
+
+BEGIN ~Alter spells to not remove invisibility if non-detection used~
+DESIGNATED 1
+
+// remove dispel illusion school from these spells
+// note there are other true sight spells but these are the main used ones
+COPY_EXISTING
+    ~SPWI609.spl~  ~override~ // wizard true sight
+    ~SPWI609d.spl~ ~override~ // wizard true sight
+    ~SPCL232.spl~  ~override~ // inquisitor true sight
+    ~SPCL232d.spl~ ~override~ // inquisitor true sight
+    ~SPCL732.spl~  ~override~ // priest of helm true sight
+    ~SPCL732d.spl~ ~override~ // priest of helm true sight
+    ~SPPR505.spl~  ~override~ // cleric true sight
+    ~SPPR505d.spl~ ~override~ // cleric true sight
+    ~SPWI515.spl~  ~override~ // oracle
+  LPF DELETE_EFFECT INT_VAR verbose = 1 match_opcode = 220 END
+BUT_ONLY IF_EXISTS
+
+// alter all invisibility spells to use the non-combatant secondary type
+COPY_EXISTING_REGEXP GLOB ~.*\.spl~ ~override~
+  SET inv=0
+  READ_LONG 0x6a offset
+  WHILE (offset<~%SOURCE_SIZE%~) BEGIN
+    READ_SHORT offset opcode
+    PATCH_IF opcode=20 BEGIN SET inv=1 END
+    SET offset+=0x30
+  END 
+  PATCH_IF inv=1 BEGIN
+    LPF PATCH_SPELL_HEADER INT_VAR match_secondary = 3 secondary = 13 END
+  END 
+BUT_ONLY
+
+// alter all invisibility items to use the non-combatant secondary type
+COPY_EXISTING_REGEXP GLOB ~.*\.itm~ ~override~
+  SET inv=0
+  READ_LONG 0x64 extheader
+  READ_SHORT 0x68 num_extheaders
+  READ_LONG 0x6a feature_offset
+  FOR (i=0; i<num_extheaders; ++i) BEGIN
+    READ_SHORT extheader+0x1e num_features
+    READ_SHORT extheader+0x20 feature_index
+    SET feature = feature_offset+(feature_index*0x30)
+    FOR (j=0; j<num_features; ++j) BEGIN
+      READ_SHORT feature opcode
+      PATCH_IF opcode=20 BEGIN SET inv=1 END 
+      SET feature+=0x30
+    END
+    SET extheader+=0x38
+  END 
+  PATCH_IF inv=1 BEGIN
+    LPF ALTER_EXT_HEADER INT_VAR match_secondary = 3 secondary = 13 END
+  END 
+BUT_ONLY
+
+// TODO: search for items rather than hardcoding them
+
+BEGIN ~Add strength to slings~
+DESIGNATED 2
+
+// Add flag_strength to all these items
+// TODO: change description
+//              ~sling07.itm~ ~override~ // sling of seeking
+COPY_EXISTING 
+    ~slng01.itm~   ~override~ // sling
+    ~slng02.itm~   ~override~ // sling +1
+    ~slng03.itm~   ~override~ // sling +3
+    ~slng04.itm~   ~override~ // sling +2
+    ~slng05.itm~   ~override~ // sling +3 "arla's dragonbane"
+    ~slng06.itm~   ~override~ // sling of arvoreen +4
+    ~slng08.itm~   ~override~ // erinne sling +4
+    ~slng09.itm~   ~override~ // erinne sling +5
+    ~slng10.itm~   ~override~ // sling +3
+    ~slngsd.itm~   ~override~ // sling
+    ~wasling.itm~  ~override~ // sling of everard +5
+  LPF ALTER_EXT_HEADER INT_VAR silent = 1 match_location = 1 flag_strength = 1 END // add strength bonus flag
+BUT_ONLY IF_EXISTS
+
+BEGIN ~Add strength to darts~
+DESIGNATED 3
+
+// Add flag_strength to all these items
+COPY_EXISTING 
+    ~dart01.itm~   ~override~ // dart
+    ~dart02.itm~   ~override~ // dart +1
+    ~dart03.itm~   ~override~ // dart of stunning
+    ~dart04.itm~   ~override~ // dart of wounding
+    ~dart05.itm~   ~override~ // asp's nest
+    ~dart06.itm~   ~override~ // giant rock
+    ~dart07.itm~   ~override~ // ???
+    ~dart08.itm~   ~override~ // crimson dart +3
+    ~dartmel.itm~  ~override~ // bone dagger
+    ~idart01.itm~  ~override~ // dart
+    ~stardart.itm~ ~override~ // dart +5
+    ~rr#fdar2.itm~ ~override~ // returning frost dart +3
+    ~rr#fdart.itm~ ~override~ // dart +5
+    ~g_dart.itm~   ~override~ // tweaks and tricks unlimited dart
+  LPF ALTER_EXT_HEADER INT_VAR silent = 1 match_location = 1 flag_strength = 1 END // add strength bonus flag
+BUT_ONLY IF_EXISTS
+
+BEGIN ~Add strength to throwing daggers~
+DESIGNATED 4
+
+// Add flag_strength to all these items
+COPY_EXISTING 
+    ~dagg05.itm~   ~override~ // throwing dagger
+    ~dagg11.itm~   ~override~ // boomerang dagger +2
+    ~dagg12.itm~   ~override~ // fire tooth +3
+    ~dagg16.itm~   ~override~ // poisoned throwing dagger
+    ~sw1h57.itm~   ~override~ // throwing dagger
+    ~g_dagg.itm~   ~override~ // tweaks and tricks unlimited dagger
+  LPF ALTER_EXT_HEADER INT_VAR silent = 1 match_location = 1 flag_strength = 1 END // add strength bonus flag
+BUT_ONLY IF_EXISTS
+
+BEGIN ~Remove double damage from magic throwing daggers~
+DESIGNATED 5
+
+COPY_EXISTING
+    ~dagg11.itm~   ~override~ // boomerang dagger +2
+    ~dagg12.itm~   ~override~ // fire tooth +3
+  LPF ALTER_EXT_HEADER INT_VAR silent = 1 match_location = 1 match_dicenumber = 2 match_dicesize = 4 dicenumber = 1 END
+  PATCH_FOR_EACH off IN DESC UNIDENTIFIED_DESC BEGIN
+    LPF REPLACE_STRREF_TRA INT_VAR offset = EVAL ~%off%~ old_substring_traref = 0 new_substring_traref = 1 END
+  END
+BUT_ONLY IF_EXISTS
+
+BEGIN ~Replace spell trap overlay with nicer animation~
+DESIGNATED 6
+
+ACTION_IF !FILE_EXISTS ~override/spmagglo.bam~ BEGIN
+  COPY ~%MOD_FOLDER%/animations/spmagglo.bam~ ~override~
+       ~%MOD_FOLDER%/animations/spmagglo.vvc~ ~override~
+END
+
+BEGIN ~Give staff of magi dispel magic a saving throw~
+DESIGNATED 7
+COPY_EXISTING ~staf11.itm~ ~override~
+  LPF REPLACE_STRREF_TRA INT_VAR offset = EVAL ~DESC~ old_substring_traref = 2 new_substring_traref = 3 END
+  LPF ALTER_ITM_EXT_HEADER_FEATURE INT_VAR verbose = 1 match_type = 1 match_feature_idx = 0 save_type = 1 END
+BUT_ONLY
