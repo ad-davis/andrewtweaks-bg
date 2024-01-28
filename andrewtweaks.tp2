@@ -147,3 +147,26 @@ COPY_EXISTING ~staf11.itm~ ~override~
   LPF REPLACE_STRREF_TRA INT_VAR offset = EVAL ~DESC~ old_substring_traref = 2 new_substring_traref = 3 END
   LPF ALTER_ITM_EXT_HEADER_FEATURE INT_VAR verbose = 1 match_type = 1 match_feature_idx = 0 save_type = 1 END
 BUT_ONLY
+
+BEGIN ~Fix fixpack's physical mirror~
+DESIGNATED 8
+COPY_EXISTING ~sppr613.spl~ ~override~
+  LPF PATCH_SPELL_EFFECT INT_VAR silent = 1 match_opcode = 197 duration = 54 timing_mode = 0 END
+BUT_ONLY
+
+/*
+// TODO: change descriptions. this only affects newly created items
+BEGIN ~One-handed spears~
+DESIGNATED 80
+// alter all invisibility items to use the non-combatant secondary type
+COPY_EXISTING_REGEXP GLOB ~.*\.itm~ ~override~
+  SET dopatch=0
+  READ_LONG 0x18 flags
+  READ_SHORT 0x1c type
+  PATCH_IF type=0x1d BEGIN // spears
+    PATCH_IF flags&BIT1 BEGIN // two-handed
+      WRITE_LONG 0x18 THIS&`BIT1
+    END
+  END
+BUT_ONLY
+*/
